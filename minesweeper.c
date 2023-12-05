@@ -1,6 +1,8 @@
 # include <stdio.h>
 # include <string.h>
 #include <malloc.h>
+#include <stdlib.h>
+#include <math.h>
 
 //#pragma warning(disable : 4996)
 
@@ -22,29 +24,76 @@ typedef struct cell cell;
 
 
 
-void display_cell(cell* c) {
-		//printf("%4d", c->position);
-        printf("%3s", "/");
-}
+
 
 cell** board;
 int rows;
 int cols;
 int mines;
 
+void display_cell(cell* c) {
+    //printf("%4d", c->position);
+    //printf("%3s", "/");
+    if (c->mined == 1) printf("%2s", "*");
+    else if(c->flagged==1) printf("%2s", "P");
+    else if(c->covered==1) printf("%2s", "/");
+    else if (c->adjcount > 0) printf("%2c", c->adjcount);
+    else printf("%2s",".");
+}
+
+void init_cell(cell *c, int p) {
+    c->position = p; // each cell knows its pos in board
+    c->mined = 0; // mined initially false
+    c->adjcount = 0; // adjcount initially 0
+    c->covered = 0; // covered initially false
+    c->flagged = 0;
+}
+int get_random(int range){
+    return ((int)floor((float)range*rand()/RAND_MAX))%range;
+}
+
 void command_new() {
 	board = (cell **)malloc(sizeof(cell *) * rows); // allocates space for board
 
 	for (int i = 0; i < rows; i++) {
 		board[i] = (cell*) malloc(sizeof(cell) * cols);
-
-
 	}
 	for (int i = 0; i < rows;i++) {
 		for (int j = 0; j < cols; j++) {
-			board[i][j].position = i*cols +j;
+            int pos = i*cols+j;
+			init_cell(&board[i][j], pos);
 		}
 	}
+    for(int p=0;p<mines-1;p++){
+        int r = get_random(rows-1);
+        int c = get_random(cols-1);
+        while(board[r][c].mined==1){
+            r = get_random(rows);
+            c = get_random(cols);
+        }
+        board[r][c].mined = 1;
+    }
+
+    int neighborhoodcount = 8;
+    int rowneighbors[] = {-1,-1,+0,+1,+1,+1,+0,-1};
+    int colneighbors[] = {+0,+1,+1,+1,+0,-1,-1,-1};
+
+    for(int r=0;r<rows-1;r++){
+        for(int c=0;c<cols-1;c++){
+            int minecount=0;
+            for(int d=0;d<neighborhoodcount;d++){
+                int r2=r+rowneighbors[d];
+                int c2=c+colneighbors[d];
+                if (0 <= r2 && r2 < rows && 0 <= c2 && c2 < cols){
+                    if(board[r2][c2].mined == 1){
+                        minecount++;
+                    }
+                }
+            }
+            board[r][c].adjcount=minecount;
+        }
+    }
+
 }
 
 void command_show() {
@@ -56,6 +105,24 @@ void command_show() {
 	}
 }
 
+void command_flag(int r, int c){
+    if(board[r][c].flagged==0){
+        board[r][c].flagged=1;
+    }
+    else{
+        printf("cell already flagged\n");
+    }
+
+}
+
+void uncover_recursive(int r, int c){
+    board[r][c].covered == 0;
+    if(board[r][c].adjcount==0){
+        for(int n=0;<n<board[r][c].adjcount;n++){}
+
+    }
+}
+
 int processcommand(char tokens[][MAXTOKENLENGTH], int tokencount) {
 	if (strcmp(tokens[0], "new") == 0) {
 		rows = atoi(tokens[1]);
@@ -65,6 +132,10 @@ int processcommand(char tokens[][MAXTOKENLENGTH], int tokencount) {
 	}
 	else if (strcmp(tokens[0], "show") == 0)
 		command_show();
+
+    else if(strcmp(tokens[0], "flag")== 0)
+        command_flag(rows,cols);
+
 	else if (strcmp(tokens[0], "quit") == 0)
 		return 0;
 
@@ -110,6 +181,7 @@ void rungame() {
 }
 
 void main() {
+    srand(time(0));
 	rungame();
 	return 0;
 }
